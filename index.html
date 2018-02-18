@@ -1,0 +1,1123 @@
+<!doctype html>
+<html>
+<head>
+</head>
+	<body>
+	</body>
+	
+	<style>
+	/* http://meyerweb.com/eric/tools/css/reset/ 
+		v2.0 | 20110126
+		License: none (public domain)
+	*/
+
+	html, body, div, span, applet, object, iframe,
+	h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+	a, abbr, acronym, address, big, cite, code,
+	del, dfn, em, img, ins, kbd, q, s, samp,
+	small, strike, strong, sub, sup, tt, var,
+	b, u, i, center,
+	dl, dt, dd, ol, ul, li,
+	fieldset, form, label, legend,
+	table, caption, tbody, tfoot, thead, tr, th, td,
+	article, aside, canvas, details, embed, 
+	figure, figcaption, footer, header, hgroup, 
+	menu, nav, output, ruby, section, summary,
+	time, mark, audio, video {
+		margin: 0;
+		padding: 0;
+		border: 0;
+		font-size: 100%;
+		font: inherit;
+		vertical-align: baseline;
+	}
+	/* HTML5 display-role reset for older browsers */
+	article, aside, details, figcaption, figure, 
+	footer, header, hgroup, menu, nav, section {
+		display: block;
+	}
+	body {
+		line-height: 1;
+	}
+	ol, ul {
+		list-style: none;
+	}
+	blockquote, q {
+		quotes: none;
+	}
+	blockquote:before, blockquote:after,
+	q:before, q:after {
+		content: '';
+		content: none;
+	}
+	table {
+		border-collapse: collapse;
+		border-spacing: 0;
+	}
+	
+	
+	/* STYLING FOR MAP */
+	.background_svg, .horizontal_txt_col:hover
+	{
+		background-color: #444;
+	}
+	
+	.info_bar_txt, .info_bar_line
+	{
+		fill: #fff;
+	}
+	
+	.info_bar_txt_disabled
+	{
+		fill: #000;
+	}
+	
+	.info_bar_trasparent
+	{
+		fill-opacity:0.2;
+	}
+	
+	.info_bar
+	{
+		fill-opacity:1;
+	}
+	
+	.state_label
+	{
+		fill: gray;
+		pointer-events: none;
+		fill:#3f77ff;
+	}
+	
+	.tooltip
+	{
+		fill:#E1F5FE;
+	}
+	
+	.info_bar_line
+	{
+		stroke: #fff;
+		stroke-width: 1;
+	}
+	
+	.horizontal_bar_bg, .horizontal_txt_col
+	{
+		fill:#555;
+	}
+	
+	.horizontal_btn_bg, .horizontal_btn_no_hover_bg, .title_bg, .info_bar
+	{
+		fill:#77d8c7;
+	}
+	
+	.title_bg, .horizontal_txt_col, .horizontal_txt_no_hover_col, .info_bar_txt, .info_bar_txt_disabled, .state_label
+	{
+		user-select: none;
+	}
+	
+	.horizontal_btn_bg:hover, .horizontal_txt_no_hover_col
+	{
+		fill:#777;
+	}
+	
+	.horizontal_txt_col, .horizontal_txt_no_hover_col
+	{
+		pointer-events: none;
+	}
+	
+	.horizontal_btn_bg:hover, .info_bar, .info_bar_trasparent, .segment, .segment:hover
+	{
+		cursor: pointer;
+	}
+	
+	.segment:hover
+	{
+		fill: #636363;
+	}
+	
+	.caption
+	{
+		fill: #000;
+		text-anchor: start;
+		font-weight: bold;
+	}
+	
+	.line_to_state
+	{
+		fill: #000;
+		stroke: #000;
+		stroke-width: 2px;
+	}
+	
+	.map_mesh
+	{
+		fill: none;
+		stroke: #fff;
+		stroke-width: 1px;
+		stroke-linejoin: round;
+	}
+
+	.map_outline
+	{
+		fill: #ddd;
+		stroke: #000;
+		stroke-width: 5px;
+	}
+	
+	.legendThreshold
+	{
+      font-size: 12px;
+      font-family: sans-serif;
+	}
+	</style>
+</html>
+
+<head>
+	<meta charset="utf-8">
+	<script src="./js/d3.v3.min.js" charset="utf-8"></script>
+	<script src="./js/queue.v1.min.js"></script>
+	<script src="./js/topojson.v1.min.js"></script>
+	<script src="./js/d3.v4.min.js"></script>
+	<script src="./js/d3-scale-chromatic.v1.min.js"></script>
+	<script src="./js/d3-legend.js"></script>
+</head>
+
+<body>
+	
+	<div class="container">
+		<div id="main" role="main">
+			<div id="map"></div>
+		</div>
+        
+		<div class="btn-group" id="tooltip" data-toggle="buttons">
+			<input id="tooltip_lock" type="checkbox" name="checkbox" value="bar" autocomplete="" onchange="toolTipChanged()" style="position: absolute;left:725px;top:165px;">
+			<input id="tooltip_show" type="checkbox" name="checkbox" value="bar" autocomplete="" onchange="toolTipShow()" style="position: absolute;left:725px;top:185px;">
+		</div>
+		
+		<div class="btn-group" id="graph_type" data-toggle="buttons">
+			<input id="radio_pie" type="radio" name="radio" value="pie" autocomplete="" onchange="graphTypeChanged()" style="position: absolute;left:725px;top:65px;">
+			<input id="radio_bar" type="radio" name="radio" value="bar" autocomplete="" onchange="graphTypeChanged()" style="position: absolute;left:725px;top:85px;">
+		</div>
+		
+	</div> 
+	
+	<script>
+		// uncheck the lock in html because it cannot be done using html only
+		document.getElementById("tooltip_lock").checked = false;
+		document.getElementById("tooltip_show").checked = true;
+		document.getElementById("radio_pie").checked = true;
+		document.getElementById("radio_bar").checked = false;
+	
+		// set keyboard listener
+		document.onkeydown = key_down;
+		
+		// convert index to state screen names and coordinates
+		// lut = look up table
+		var state_lut = {0:["JHR", "Johor", [200, 540]], 1:["KDH","Kedah", [60, 335]], 2:["KTN", "Kelantan", [129, 375]], 3:["SHA","Shah Alam",[60, 500]], 4:["SBH", "Sabah", [-100, -100]], 5:["MLK", "Malacca", [135, 540]], 6:["NSN", "Seremban", [140, 500]], 7:["PHG", "Pahang", [150, 450]], 8:["PRK","Perak", [76, 396]], 9:["PLS","Perlis", [40, 290]], 10:["PNG","Penang", [20, 380]], 11:["KUL","Kuala Lumpur",[100, 525]], 12:["SBH", "Sabah", [860, 363]], 13:["SWK", "Sarawak", [700, 506]], 14:["SGR","Selangor", [45, 460]], 15:["TRG", "Terengganu", [170, 383]]};
+		
+		var color_lut = {"Total Accident":"#77d8c7", "Deadly Accident":"#b39063", "Severe Accident":"#888c46", "Light Accident":"#595775", "Broke Down":"#f2a014", "Severe Injury":"#72a2c0", "Light Injury":"#1d65a6", "Total Death":"#bf988f"};
+
+		// number formatter to make number look nice
+		var formatter = new Intl.NumberFormat('en-US',{
+			style: 'decimal',
+			currency: 'USD',
+			minimumFractionDigits: 0
+			});
+		
+		// contains all instances to construct a toggle along with its state (toggled on or toggled off)
+		var toggle_bars = new Array();
+		
+		// constants
+		var svg_width = 1000;
+		var svg_height = 750;
+		var map_offset_x = 0;
+		var map_offset_y = 50;
+		
+		var svg = d3.select("#map")
+			.append("svg")
+			.attr("width", svg_width)
+			.attr("height", svg_height)
+			.attr("class", "background_svg")
+			.on('mousemove', function()
+			{
+				ui_lut["mouse_x"] = d3.mouse(this)[0];
+				ui_lut["mouse_y"] = d3.mouse(this)[1];
+			});
+		
+		// map initialization
+		var c10 = d3.scaleOrdinal(d3.schemeCategory10);
+		var projection = d3.geoMercator()
+			.scale(1)
+			.translate([0,0]);			
+		var path = d3.geoPath().projection(projection);
+		
+		// initial color scale
+		var color_scheme = d3.schemeReds[6];
+		color_scheme.unshift("#eee")
+		var colorScale = d3.scaleThreshold()
+			.domain([0, 0, 0, 0, 0, 0, 0]) // temporary place holder which will be replaced later
+			.range(color_scheme);
+		
+		// constants for date
+		var starting_date = 2011;
+		var ending_date = 2015;
+		
+		// date that is currently selected and previously selected
+		var current_date = starting_date;
+		var previous_date = null;
+		
+		// settings for tooltip
+		var tooltip_locked = false;
+		var tooltip_showed = true;
+		var graph_type = "pie";
+		
+		// contains current total stats to be displayed on the toggle
+		var current_stats = {"Total Accident":0, "Deadly Accident":0, "Severe Accident":0, "Light Accident":0, "Broke Down":0, "Death":0, "Severe Injury":0, "Light Injury":0};
+		
+		/* UTILITY FUNCTIONS FOR UI CONSTRUCTION */
+		function draw_line(x1, y1, x2, y2, cls_name)
+		{
+			var line = svg.append("line")
+				.attr("x1", x1)
+				.attr("y1", y1)
+				.attr("x2", x2)
+				.attr("y2", y2)
+				.attr("class", cls_name);
+			return line;
+		}
+		
+		function draw_text(txt, x, y, cls_name = "info_bar_txt", parent=svg, fnt_sz = 18, fnt_weight = "bold", fnt_family = "Helvetica")
+		{
+			var text = parent.append("text")
+				.text(txt)
+				.attr("x", x)
+				.attr("y", y)
+				.attr("font-size", fnt_sz)
+				.attr("font-weight", fnt_weight)
+				.attr("font-family", fnt_family)
+				.attr("class", cls_name);
+			return text;
+		}
+		
+		function draw_rect(id, width, height, x, y, rect_col, cls_name, fun, obj)
+		{
+			var rect = obj.append("rect")
+				.attr("id", id)
+				.attr("width", width)
+				.attr("height", height)
+				.attr("x", x)
+				.attr("y", y)
+				.attr("style", "fill:"+rect_col+";")
+				.attr("class", cls_name)
+				.on("click", fun);
+			return rect;
+		}
+	
+		function construct_info_bar(rect_col, x, y, count, title_txt, title_txt_x_offset = 4, title_txt_y_offset = 20, width = 150, txt_x_offset = 10, txt_y_offset = 60, height = 80, hovered_fun = toggle_hovered, mouseover_fun = toggle_over)
+		{
+			var body = draw_rect(title_txt, width, height, x, y, rect_col, "info_bar", on_toggle, svg)
+				.on("mouseover", hovered_fun)
+				.on("mouseout", mouseover_fun);
+						
+			var header_txt_coord_x = x + title_txt_x_offset;
+			var header_txt_coord_y = y + title_txt_y_offset;
+			
+			
+			var counter_txt_coord_x = x + txt_x_offset;
+			var counter_txt_coord_y = y + txt_y_offset;
+			
+			var header_txt = draw_text(title_txt, header_txt_coord_x, header_txt_coord_y, "info_bar_txt");	
+			var counter_txt = draw_text(formatter.format(count), counter_txt_coord_x, counter_txt_coord_y, "info_bar_txt");		
+			
+			return [body, header_txt, counter_txt]
+		}
+		
+		/* UI CONSTRUCTION */
+		/* CONSTRUCT INFORMATION BAR & TOGGLE BINDING */
+		var accident_info = construct_info_bar("#77d8c7", 540, 30, current_stats["Total Accident"], "Total Accident");
+		accident_info[0].attr("class", "horizontal_btn_no_hover_bg");
+		accident_info[1].attr("class", "info_bar_txt_disabled");
+		accident_info[2].attr("class", "info_bar_txt_disabled");
+								
+		var deadly_info = construct_info_bar("#b39063", 30, 30, current_stats["Deadly Accident"], "Deadly Accident");
+		var severe_accident_info = construct_info_bar("#888c46", 200, 30, current_stats["Severe Accident"], "Severe Accident");
+		var light_accident_info = construct_info_bar("#595775", 370, 30, current_stats["Light Accident"], "Light Accident");
+		
+		
+		var broke_down_info = construct_info_bar("#f2a014", 30, 130, current_stats["Broke Down"], "Broke Down");
+		var death_info = construct_info_bar("#72a2c0", 200, 130, current_stats["Death"], "Total Death");
+		var severe_injury_info = construct_info_bar("#1d65a6", 370, 130, current_stats["Severe Injury"], "Severe Injury");
+		var light_injury_info = construct_info_bar("#bf988f", 540, 130, current_stats["Light Injury"], "Light Injury");
+		
+		toggle_bars["Total Accident"] = {obj:accident_info, is_selected:true, is_hovered:false};
+		toggle_bars["Deadly Accident"] = {obj:deadly_info, is_selected:true, is_hovered:false};
+		toggle_bars["Severe Accident"] = {obj:severe_accident_info, is_selected:true, is_hovered:false};
+		toggle_bars["Light Accident"] = {obj:light_accident_info, is_selected:true, is_hovered:false};
+		toggle_bars["Broke Down"] = {obj:broke_down_info, is_selected:true, is_hovered:false};
+		toggle_bars["Total Death"] = {obj:death_info, is_selected:true, is_hovered:false};
+		toggle_bars["Severe Injury"] = {obj:severe_injury_info, is_selected:true, is_hovered:false};
+		toggle_bars["Light Injury"] = {obj:light_injury_info, is_selected:true, is_hovered:false};
+		
+		/* CONSTRUCT GRAPH TYPE*/
+		draw_rect(null, 100, 80, 710, 30, "#77d8c7", null, null, svg);
+		draw_rect(null, 100, 80, 710, 130, "#77d8c7", null, null, svg);
+
+		/* CONSTRUCTING LEGEND */
+		draw_rect(null, 140, 180, 830, 30, "#77d8c7", null, null, svg);
+			
+		var g = svg.append("g")
+			.attr("class", "legendThreshold")
+			.attr("transform", "translate(840,70)");
+			
+		var labels = [];
+		var legend = d3.legendColor()
+			.labels(function (d) { return labels[d.i]; })
+			.shapePadding(4)
+			.scale(colorScale);
+			
+		svg.select(".legendThreshold")
+			.call(legend)
+			.attr("font-weight", "bold");
+		
+		/* HORIZONTAL BAR */
+		draw_rect(null, 450, 40, 285, 670, null, "horizontal_bar_bg", null, svg);
+		
+		function update_bar()
+		{
+			curr_year_btn.remove();
+			curr_year_btn = svg.append("g");
+			
+			var x_coord = 310 + ((current_date - starting_date) * 75);
+			var x_txt_coord = x_coord + 23;
+			
+			draw_rect(null, 100, 40, x_coord, 670, null, "horizontal_btn_no_hover_bg", null, curr_year_btn);
+			draw_text(current_date, x_txt_coord, 700, "horizontal_txt_no_hover_col", curr_year_btn, 25);
+
+			update_graph();
+			
+			mouseover(null);
+		}
+
+		var graph_title = svg.append("g");
+		
+		var previous_year_btn = svg.append("g")
+			.on("click", previous_year_btn_clicked);
+		var next_year_btn = svg.append("g")
+			.on("click", next_year_btn_clicked);
+		var curr_year_btn = svg.append("g");
+		
+		function decrement_year()
+		{
+			current_date = (current_date == starting_date) ? current_date : current_date - 1;
+			previous_date = (current_date + 1 == ending_date) ? ending_date : current_date + 1;
+			update_bar();
+		}
+		
+		function increment_year()
+		{
+			current_date = (current_date == ending_date) ? current_date : current_date + 1;
+			previous_date = (current_date - 1 == starting_date) ? starting_date : current_date - 1;
+			update_bar();
+		}
+		
+		draw_rect(null, 25, 40, 285, 670, null, "horizontal_btn_bg", null, previous_year_btn);
+		draw_rect(null, 25, 40, 710, 670, null, "horizontal_btn_bg", null, next_year_btn);
+		draw_rect(null, 100, 40, 310, 670, null, "horizontal_btn_no_hover_bg", null, curr_year_btn);
+		
+		draw_text(current_date, 333, 700, "horizontal_txt_no_hover_col", curr_year_btn, 25);
+		
+		/* RENDER LINES AND TEXT */
+		// coordinates of line to be drawn
+		var line_coordinates = [[540, 60, 690, 60, "info_bar_line"], [30, 60, 180, 60, "info_bar_line"], [200, 60, 350, 60, "info_bar_line"], [370, 60, 520, 60, "info_bar_line"], [30, 160, 180, 160, "info_bar_line"], [200, 160, 350, 160, "info_bar_line"], [370, 160, 520, 160, "info_bar_line"], [540, 160, 690, 160, "info_bar_line"], [710, 60, 810, 60, "info_bar_line"], [830, 60, 970, 60, "info_bar_line"], [150, 530, 160, 515, "line_to_state"], [112, 515, 123, 485, "line_to_state"], [70, 487, 123, 474, "line_to_state"], [73, 457, 93, 447, "line_to_state"], [46, 375, 60, 370, "line_to_state"], [55, 290, 55, 300, "line_to_state"], [710, 160, 810, 160, "info_bar_line"]];
+	
+		// next coordinates to be drawn
+		var text_coordinates = [["Type", 715, 50, "horizontal_txt_col", svg, 18], ["Tooltip", 715, 150, "horizontal_txt_col", svg, 18], ["Pie", 755, 80, "", svg, 14], ["Lock", 755, 180, "", svg, 14], ["Show", 755, 200, "", svg, 14], ["Bar", 755, 100, "", svg, 15], ["Total Accident", 835, 50, "horizontal_txt_col", svg, 18], [">", 715, 700, "horizontal_txt_col", next_year_btn, 25], ["<", 290, 700, "horizontal_txt_col", previous_year_btn, 25], ["Road Accidents and Injuries", 346, 645, "title_bg", graph_title, 25]];
+		// render text
+		for (var elem in text_coordinates)
+		{
+			var temp = text_coordinates[elem];
+			draw_text(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]);
+		}
+		
+		// render line
+		for (var elem in line_coordinates)
+		{
+			var temp = line_coordinates[elem];
+			draw_line(temp[0], temp[1], temp[2], temp[3], temp[4]);
+		}
+		
+		/* MAP, DATA AND VISUALIZATION CONSTRUCTION */
+		// load the csv data into map
+		var raw_data = new Array();
+		// each state segment object
+		var state_segment = new Array();
+		// unique states
+		var states = new Array();
+		// initialize the data by mapping year to sum of each category
+		var aggregated_year = {};
+		
+		// draw map
+		d3.queue()
+			.defer(d3.csv, "data.csv", set_data) 
+			.defer(d3.json, "malaysia_topo.json", load_map);
+		
+		function set_data(d, callback)
+		{
+		
+			var temp = d.year.toString();
+			if (!(temp in aggregated_year))
+			{
+				aggregated_year[temp] = {"Total Accident":0,"Deadly Accident":0,"Severe Accident":0,"Light Accident":0,"Broke Down":0,"Total Death":0,"Severe Injury":0,"Light Injury":0};
+			}
+
+			aggregated_year[temp]["Total Accident"] += parseInt(d.ttl_acc);
+			aggregated_year[temp]["Deadly Accident"] += parseInt(d.ttl_deadly_acc);
+			aggregated_year[temp]["Severe Accident"] += parseInt(d.ttl_sev_acc);
+			aggregated_year[temp]["Light Accident"] += parseInt(d.ttl_lgt_acc);
+			aggregated_year[temp]["Broke Down"] += parseInt(d.brk_dwn_vec);
+			aggregated_year[temp]["Total Death"] += parseInt(d.ttl_death);
+			aggregated_year[temp]["Severe Injury"] += parseInt(d.ttl_sev_inj);
+			aggregated_year[temp]["Light Injury"] += parseInt(d.ttl_lgt_inj);
+			
+			var temp = d.state+d.year;
+			if (!raw_data.includes(temp))
+			{
+				raw_data[temp] = new Array();
+			}
+			
+			raw_data[temp]["Total Accident"] = d.ttl_acc;
+			raw_data[temp]["Deadly Accident"] = d.ttl_deadly_acc;
+			raw_data[temp]["Severe Accident"] = d.ttl_sev_acc;
+			raw_data[temp]["Light Accident"] = d.ttl_lgt_acc;
+			raw_data[temp]["Broke Down"] = d.brk_dwn_vec;
+			raw_data[temp]["Total Death"] = d.ttl_death;
+			raw_data[temp]["Severe Injury"] = d.ttl_sev_inj;
+			raw_data[temp]["Light Injury"] = d.ttl_lgt_inj;
+			
+			if (!states.includes(d.state.toString()))
+			{
+				states.push(d.state.toString());
+			}
+		}
+		
+		// read topojson file and write map
+		function load_map(error, malaysia, callback)
+		{
+			if (error) throw error;
+
+			var neighbourhoods = topojson.feature(malaysia, malaysia.objects.collection); 
+
+			// set default projection values 
+			projection
+			  .scale(1)
+			  .translate([0, 0]);
+
+			// creates bounding box and helps with projection and scaling
+			var b = path.bounds(neighbourhoods),
+			  s = .95 / Math.max((b[1][0] - b[0][0]) / svg_width, (b[1][1] - b[0][1]) / svg_height),
+			  t = [((svg_width - s * (b[1][0] + b[0][0])) / 2) + map_offset_x, ((svg_height - s * (b[1][1] + b[0][1])) / 2) + map_offset_y];
+
+			// set project with bounding box data
+			projection
+				.scale(s)
+				.translate(t);
+			// get individual neighbourhoods
+			svg.selectAll("path")
+				.data(neighbourhoods.features)
+				.enter()
+					.append("path")
+						.attr("class", "map_neighbourhood")
+						.attr("fill", function (d, idx)
+						{
+							var state_name = state_lut[idx][1].toString().toUpperCase();
+							
+							// shah alam is the capital of selangor, they're the same state.
+							if(state_name == "SHAH ALAM")
+							{
+								state_name = "SELANGOR";
+							}
+							state_segment[state_name] = this;	
+							var temp = 0;
+							for (var key in toggle_bars)
+							{
+								if(toggle_bars[key].is_selected && key != "Total Accident")
+								{
+									var val = raw_data[state_name+current_date][key];
+									if (val == null)
+										continue;
+									temp += parseInt(raw_data[state_name+current_date][key]);
+								}
+							}
+							
+							// Set the color
+							return colorScale(temp);
+						})
+						.attr("class", "segment")
+						.attr("d", path)
+						.on("mouseover", mouseover)
+						.on("mouseout", mouseout)
+						.on("click", clicked);
+						
+			svg.selectAll(".state_label")
+				.data(neighbourhoods.features)
+				.enter()
+					.append("text")
+						.attr("x", function (d, i) { return state_lut[i][2][0]; } )
+						.attr("y", function (d, i) { return state_lut[i][2][1]; } )
+						.attr("class", "state_label")
+						.attr("font-size", 12)
+						.attr("font-weight", "bold")
+						.attr("font-family", "Helvetica")
+						.text(function (d, i) { return state_lut[i][0]; } )
+						.on("mouseover", mouseover)
+						.on("mouseout", mouseout)
+						.on("click", clicked);
+						
+			// add the mesh/path between neighbourhoods
+			svg.append("path")
+				.datum(topojson.mesh(malaysia, malaysia.objects.collection, function(a, b) { return a !== b; }))
+				.attr("class", "map_mesh")
+				.attr("d", path);
+			
+			update_graph();
+		}
+		
+		// update data shown on graph
+		function update_graph()
+		{
+			update_values();
+			update_color_scale();
+			update_intensity();
+		}
+		
+		// update all variables needed to be displayed in the graph 
+		function update_values()
+		{
+
+			var temp = aggregated_year[current_date];
+			
+			current_stats["Deadly Accident"] = temp["Deadly Accident"];
+			current_stats["Severe Accident"] = temp["Severe Accident"];
+			current_stats["Light Accident"] = temp["Light Accident"];
+			current_stats["Broke Down"] = temp["Broke Down"];
+			current_stats["Total Death"] = temp["Total Death"];
+			current_stats["Severe Injury"] = temp["Severe Injury"];
+			current_stats["Light Injury"] = temp["Light Injury"];
+			
+			var total_accident = 0;
+			for (var key in toggle_bars)
+			{
+				if(toggle_bars[key].is_selected && key != "Total Accident")
+				{
+					total_accident += parseInt(current_stats[key]);
+				}
+			}
+			
+			current_stats["Total Accident"] = total_accident;
+			set_toggle_stats(current_stats);
+		}
+		
+		// update the color scale and also legend values
+		function update_color_scale()
+		{
+			var domain_arr = [0];
+			
+			var max = Number.MIN_SAFE_INTEGER;
+			var min = Number.MAX_SAFE_INTEGER;
+
+			for (var state in states)
+			{
+				for(var curr_date = starting_date; curr_date <= ending_date; ++ curr_date)
+				{
+					var temp = 0;
+					for (var toggle_keys in toggle_bars)
+					{
+						if (toggle_keys == "Total Accident" || !toggle_bars[toggle_keys].is_selected)
+							continue;
+						
+						temp += parseInt(raw_data[states[state]+curr_date][toggle_keys]);
+					}
+					max = Math.max(max, temp);
+					min = Math.min(min, temp);
+				}
+			}
+			
+			var inc = (max-min)/6;
+			var curr = 0;
+			for(var idx = 1; idx <= 7; ++idx)
+			{
+				curr += inc;
+				domain_arr.push(Math.round(curr));
+			}
+			
+			var labels = new Array();
+				
+			for(var idx = 1; idx <= 6; ++idx)
+			{
+				var from_rng = domain_arr[idx-1];
+				var end_rng = domain_arr[idx];
+				if (idx != 0)
+				{
+					from_rng++;
+				}
+				labels.push(formatter.format(from_rng) + "-" + formatter.format(end_rng));
+				if(idx == 6)
+				{
+					labels.push("> " + (parseInt(end_rng)+1));
+				}
+			}
+			
+			var legend = d3.legendColor()
+				.labels(function (d) { return labels[d.i]; })
+				.shapePadding(4)
+				.scale(colorScale);
+				
+			svg.selectAll(".legendThreshold")
+				.call(legend)
+				.attr("font-weight", "bold");
+			
+			// update the color scale to only the active toggles
+			colorScale = d3.scaleThreshold()
+				.domain(domain_arr)
+				.range(color_scheme);
+		}
+		
+		// update intensity of color
+		function update_intensity()
+		{					
+			svg.selectAll(".segment")
+				.attr("fill", function (d, idx)
+				{
+					var state_name = state_lut[idx][1].toString().toUpperCase();
+					
+					// shah alam is the capital of selangor, they're the same state.
+					if(state_name == "SHAH ALAM")
+					{
+						state_name = "SELANGOR";
+					}
+					
+					var temp = 0;
+					for (var key in toggle_bars)
+					{
+						if(toggle_bars[key].is_selected && key != "Total Accident")
+						{
+							var val = raw_data[state_name+current_date][key];
+							if (val == null)
+								continue;
+							temp += parseInt(raw_data[state_name+current_date][key]);
+						}
+					}
+					
+					return colorScale(temp);
+				});
+		}
+		
+		// set all toggle's stats
+		function set_toggle_stats(info)
+		{
+			toggle_bars["Total Accident"].obj[2].text(formatter.format(info["Total Accident"]));
+			toggle_bars["Deadly Accident"].obj[2].text(formatter.format(info["Deadly Accident"]));
+			toggle_bars["Severe Accident"].obj[2].text(formatter.format(info["Severe Accident"]));
+			toggle_bars["Light Accident"].obj[2].text(formatter.format(info["Light Accident"]));
+			toggle_bars["Broke Down"].obj[2].text(formatter.format(info["Broke Down"]));
+			toggle_bars["Total Death"].obj[2].text(formatter.format(info["Total Death"]));
+			toggle_bars["Severe Injury"].obj[2].text(formatter.format(info["Severe Injury"]));
+			toggle_bars["Light Injury"].obj[2].text(formatter.format(info["Light Injury"]));
+		}
+		
+		/* tooltip creation and initialization */
+		var ui_lut = {};
+		var mouse_over_clicked = false;
+		var tooltip = null;
+		var tooltip_title = null;
+		var tooltip_line = null;
+		var tooltip_curr_title = null;
+		var pi_arcs = null;
+		var pi_chart = null;
+		var prev_pi_arcs = null;
+		var prev_pi_chart = null;
+		var tooltip_prev_title = null;
+		var current_country_title = null;
+		var previous_idx = null;
+		var current_idx = null;
+		
+		function remove(elem)
+		{
+			if (elem != null)
+			{
+				elem.remove();
+			}
+			return null;
+		}
+		
+		function remove_tooltip()
+		{
+			current_country_title = remove(current_country_title);
+			tooltip = remove(tooltip);
+			pi_arcs = remove(pi_arcs);
+			pi_chart = remove(pi_chart);
+			prev_pi_arcs = remove(prev_pi_arcs);
+			prev_pi_chart = remove(prev_pi_chart);
+			tooltip_title = remove(tooltip_title);
+			tooltip_line = remove(tooltip_line);
+			tooltip_curr_title = remove(tooltip_curr_title);
+			tooltip_prev_title = remove(tooltip_prev_title);
+		}
+		
+		function create_tooltip(title, x, y, data, prev_data, curr_year, prev_year, current_country)
+		{
+			tooltip = draw_rect(title, 150, 300, x, y, null, "tooltip", null, svg);
+			tooltip.transition()		
+				.duration(200)		
+				.attr("opacity", .9);
+				
+			tooltip_title = draw_text("Tool Tip", x + 43, y + 18, "horizontal_txt_col", svg, 18);
+			tooltip_prev_title = draw_text("Previous Year : " + prev_year, x + 10, y + 185, "horizontal_txt_col", svg, 10);
+			tooltip_curr_title = draw_text("Current Year : " + curr_year, x + 10, y + 60, "horizontal_txt_col", svg, 10);
+			current_country_title = draw_text("State : " + current_country, x + 10, y + 40, "horizontal_txt_col", svg, 10);
+			tooltip_line = draw_line(x, y+25, x + 150, y+25, "info_bar_line");
+			
+			var pie_x_pos = x + 75;
+			var chart_x_pos = x + 5;
+			var pie_y_pos = y + 120;
+			
+			if (data != null)
+			{
+				if (graph_type=="pie")
+				{
+					var temp = create_piechart(data, pie_x_pos, pie_y_pos, pi_arcs, pi_chart);
+					pi_arcs = temp[0];
+					pi_chart = temp[1];
+				}
+				else
+				{
+					var temp = create_bargraph(data, chart_x_pos, pie_y_pos);
+					pi_chart = temp[0];
+				}
+			}
+			
+			pie_y_pos = y + 240;
+			if (prev_data != null)
+			{
+				if (graph_type == "pie")
+				{
+					var temp = create_piechart(prev_data, pie_x_pos, pie_y_pos, prev_pi_arcs, prev_pi_chart);
+					prev_pi_arcs = temp[0];
+					prev_pi_chart = temp[1];
+				}
+				else
+				{
+					var temp = create_bargraph(prev_data, chart_x_pos, pie_y_pos);
+					prev_pi_chart = temp[0];
+				}
+			}
+		}
+		
+		function toolTipChanged()
+		{
+			tooltip_locked = !tooltip_locked;
+			if (!tooltip_locked)
+			{
+				remove_tooltip();
+			}
+		}
+		
+		function toolTipShow()
+		{
+			tooltip_showed = !tooltip_showed;
+			if (!tooltip_showed)
+			{
+				remove_tooltip();
+			}
+			toolTipChanged();
+		}
+		
+		function graphTypeChanged()
+		{
+			graph_type=(graph_type=="pie")?"bar":"pie";
+			document.getElementById("tooltip_lock").focus();
+			mouse_over_clicked = true;
+			mouseover(null);
+		}
+		
+		function create_piechart(data, x, y, arc, pie)
+		{
+			var r = 50;
+			var chart = svg.data([data])
+				.append("svg:g")
+					.attr("transform", "translate(" + x + "," + y + ")");
+
+			var arc = d3.svg.arc()
+				.outerRadius(r);
+
+			var pie = d3.layout.pie()
+				.value(function(d) { return d.value; });
+				
+			var arcs = chart.selectAll("g.slice")
+					.data(pie)
+					.enter()
+						.append("svg:g")
+							.attr("class", "slice");
+
+			arcs.append("svg:path")
+					.attr("fill", function(d, i) { return d.data.color; } )
+					.attr("d", arc);
+			return [chart, arcs];
+		}
+		
+		function create_bargraph(data, x, y)
+		{
+			var width = 140;
+			var height = 50;
+					  
+			var max = Number.MIN_SAFE_INTEGER;
+			var min = Number.MAX_SAFE_INTEGER;
+			var temp = [];
+			
+			for (var key in data)
+			{
+				max = Math.max(max, data[key].value);
+				min = Math.min(min, data[key].value);
+				temp.push(data[key].name)
+			}
+			
+			// set the ranges
+			var xScale = d3.scaleBand()
+					  .range([0, width])
+					  .padding(0.1)
+					  .domain(temp);
+			var yScale = d3.scaleLinear()
+					  .range([height, 0])
+					  .domain([0, max]);
+					  
+			var chart = svg.data([data])
+				.append("svg:g")
+				.attr("transform", "translate(" + x + "," + y + ")");
+			
+			chart.selectAll(".chart")
+				.data(data)
+				.enter()
+				.append("rect")
+					.attr("class", "chart")
+					.attr("x", function(d) { return xScale(d.name); })
+					.attr("y", function(d) { return yScale(d.value); })
+					.attr("fill", function(d, i) { return d.color; } )
+					.attr("width", xScale.bandwidth())
+					.attr("height", function(d) { return height - yScale(d.value); });
+			return [chart];
+		}
+		
+		// get stats of element that is being currently hovered
+		// along with its value to key pair (to be ploted onto a graph)
+		function get_stats(i, date)
+		{
+			if (date == null || !(i in state_lut))
+			{
+				return null;
+			}
+			// display stats when mouse hovered
+			var temp = state_lut[i][1].toString().toUpperCase();
+			temp = ((temp == "SHAH ALAM")? "SELANGOR": temp) + date;
+			
+			var stat = raw_data[temp];
+			
+			var hovered_stats = {"Total Accident":0, "Deadly Accident":stat["Deadly Accident"], "Severe Accident":stat["Severe Accident"], "Light Accident":stat["Light Accident"], "Broke Down":stat["Broke Down"], "Severe Injury":stat["Severe Injury"], "Light Injury":stat["Light Injury"], "Total Death":stat["Total Death"]};
+			
+			var total_accident = 0;
+			for (var key in toggle_bars)
+			{
+				if(toggle_bars[key].is_selected && key != "Total Accident")
+				{
+					total_accident += parseInt(hovered_stats[key]);
+				}
+			}
+
+			hovered_stats["Total Accident"] = total_accident;
+			
+			var data = [];
+			//color_lut
+			for (var key in toggle_bars)
+			{
+				if(toggle_bars[key].is_selected && key != "Total Accident")
+				{
+					data.push({"name":key ,"value":hovered_stats[key], "color":color_lut[key]});
+				}
+			}
+			return [hovered_stats, data]
+		}
+		
+		/* EVENTS FUNCTION (mouse over, pie chart/bar chart changed, tool box settings, event calls and etc.) */
+		
+		function previous_year_btn_clicked()
+		{
+			decrement_year();
+		}
+		
+		function next_year_btn_clicked()
+		{
+			increment_year();
+		}
+		
+		// calls when a toggle rect is clicked
+		function on_toggle ()
+		{
+			var title = d3.select(this).attr("id");
+			
+			if (title === null || title=="" || title == "Total Accident")
+			{
+				return;
+			}
+			
+			if (toggle_bars[title].is_selected)
+			{
+				toggle_bars[title].obj[0].attr("class", "info_bar_trasparent");
+				toggle_bars[title].obj[1].attr("class", "info_bar_txt_disabled");
+				toggle_bars[title].obj[2].attr("class", "info_bar_txt_disabled");
+			}
+			else
+			{
+				toggle_bars[title].obj[0].attr("class", "info_bar");
+				toggle_bars[title].obj[1].attr("class", "info_bar_txt");
+				toggle_bars[title].obj[2].attr("class", "info_bar_txt");
+			}
+			
+			toggle_bars[title].is_selected = !toggle_bars[title].is_selected;
+			
+			update_graph();
+			
+			mouse_over_clicked = true;
+			mouseover(null);
+		}
+	
+		function toggle_hovered()
+		{
+			var title = d3.select(this)._groups[0][0].attributes[0].nodeValue;
+			toggle_bars[title].is_hovered = true;
+		}
+		
+		function toggle_over()
+		{
+			var title = d3.select(this)._groups[0][0].attributes[0].nodeValue;
+			toggle_bars[title].is_hovered = false;
+		}
+		
+		function mouse_on_toggle()
+		{
+			for(var key in toggle_bars)
+			{
+				if (toggle_bars[key].is_hovered && key != "Total Accident")
+					return true;
+			}
+			return false;
+		}
+		
+		function key_down(e)
+		{
+
+			e = e || window.event;
+
+			if (e.keyCode == '37')
+			{
+				decrement_year();
+			}
+			else if (e.keyCode == '39')
+			{
+			   // right arrow
+				increment_year();
+			}
+
+		}
+
+		// events that can happen in the graphs
+		function mouseout(d, i)
+		{    
+			hovering = false;
+			set_toggle_stats(current_stats);
+			
+			if (!tooltip_locked)
+			{
+				remove_tooltip();
+			}
+        }
+
+        function clicked(d){}
+		
+		// update toggles stats
+		function update_toggle_stats(curr_idx, prev_idx)
+		{
+			var temp = get_stats(curr_idx, current_date);
+			if (temp == null)
+				return true;
+			
+			// data to be displayed on toggle
+			var hovered_stats = temp[0];
+			// data to be displayed as charts 
+			var chart_data = temp[1];
+			
+			// get data of the previous year, if no previous year exists then display the current one
+			var prev_hovered_stats = temp[0];
+			var prev_chart_data = temp[1]
+			temp = get_stats(curr_idx, previous_date);
+			if (temp != null)
+			{
+				prev_hovered_stats = temp[0];
+				prev_chart_data = temp[1];
+			}
+			
+			set_toggle_stats(hovered_stats);
+			
+			return [chart_data, prev_chart_data];
+		}
+		
+		function display_tooltip(current_data, previous_data, state_name)
+		{
+			var mouse_x_pos = ui_lut["mouse_x"];
+			var mouse_y_pos = ui_lut["mouse_y"];
+			if (d3.event != null)
+			{
+				mouse_x_pos = d3.event.pageX;
+				mouse_y_pos = d3.event.pageY;
+				
+			}
+			
+			var xpos = 825;
+			var ypos = 425;
+			if (!tooltip_locked)
+			{
+				// to make sure the tool tip does not go out of bound
+				var xpos = (mouse_x_pos + 180) > svg_width ? svg_width - 150: (mouse_x_pos + 30);
+				var ypos = (mouse_y_pos + 330) > svg_height ? svg_height - 300: (mouse_y_pos + 30);
+			}
+			
+			remove_tooltip();
+			create_tooltip("id", xpos, ypos, current_data, previous_data, current_date, previous_date, state_name);
+		}
+		
+		function mouseover(d, i)
+		{
+			current_idx = i;
+			if (i==null && previous_idx!=null)
+			{
+				current_idx = previous_idx;
+			}
+			previous_idx = current_idx;
+			
+			var temp = update_toggle_stats(current_idx, previous_idx);
+			var data = temp[0];
+			var prev_data = temp[1];
+			
+			// dont show tool tip
+			if (!tooltip_showed)
+			{
+				return;
+			}
+			
+			var state_name = state_lut[current_idx][1].toString();
+			display_tooltip(data, prev_data, state_name);
+			
+		}
+			
+	</script>
+</body>
+</html>
+
