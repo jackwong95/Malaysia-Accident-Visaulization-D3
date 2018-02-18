@@ -16,4 +16,3 @@
 ![](./screenshots/tooltip_display.png "Enabling the tooltip.")
 ## Navigating the dataset through different years
 ![](./screenshots/navigate_through_years.png "Navigating the dataset through different years.")
-.png
