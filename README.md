@@ -5,4 +5,3 @@
 Link for git pages
 
 > [Dashboard](https://jackwong95.github.io/Malaysia-Accident-Visaulization-D3/)
-
